@@ -10,7 +10,7 @@ const StyleConsultant: React.FC = () => {
   const [step, setStep] = useState<AppStep>(AppStep.UPLOAD_CURRENT);
   const [currentImg, setCurrentImg] = useState<string | null>(null);
   const [targetImg, setTargetImg] = useState<string | null>(null);
-  
+
   const [isProcessing, setIsProcessing] = useState(false);
   const [analysis, setAnalysis] = useState<HairAnalysis | null>(null);
   const [generatedImg, setGeneratedImg] = useState<string | null>(null);
@@ -38,7 +38,7 @@ const StyleConsultant: React.FC = () => {
       return { latitude: position.coords.latitude, longitude: position.coords.longitude };
     } catch (e) {
       console.warn("High accuracy location failed, trying fallback...", e);
-      
+
       try {
         // 2. Fallback: Low Accuracy (allows cached position up to 1 minute old)
         const position = await getPos({ enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 });
@@ -69,12 +69,12 @@ const StyleConsultant: React.FC = () => {
     try {
       // 1. Ensure we have location before starting
       let userLoc = location;
-      
+
       // If we don't have location yet, try to get it again explicitly
       if (!userLoc) {
         setStatusMessage("위치 정보를 받아오는 중...");
         userLoc = await getLocation();
-        
+
         if (userLoc) {
           setLocation(userLoc);
         } else {
@@ -85,12 +85,12 @@ const StyleConsultant: React.FC = () => {
 
       // 2. Parallelize text analysis and image generation
       setStatusMessage("스타일 분석 및 이미지 생성 중...");
-      
+
       const analysisPromise = analyzeHairCompatibility(currentImg, targetImg);
       const previewPromise = generateHairstylePreview(currentImg, targetImg);
 
       const [analysisResult, previewResult] = await Promise.all([analysisPromise, previewPromise]);
-      
+
       setAnalysis(analysisResult);
       setGeneratedImg(previewResult);
 
@@ -132,7 +132,7 @@ const StyleConsultant: React.FC = () => {
       <Header />
 
       <main className="flex-1 w-full max-w-5xl mx-auto px-4 py-8">
-        
+
         {step !== AppStep.RESULTS && (
           <div className="max-w-xl mx-auto text-center mb-10 space-y-2">
             <h2 className="text-3xl font-bold text-gray-900">AI 헤어 스타일 컨설턴트</h2>
@@ -142,15 +142,15 @@ const StyleConsultant: React.FC = () => {
 
         {step === AppStep.ANALYZING && (
           <div className="flex flex-col items-center justify-center py-20 animate-pulse">
-             <Loader2 className="w-16 h-16 text-indigo-600 animate-spin mb-6" />
-             <h3 className="text-xl font-semibold text-gray-800">AI가 열심히 분석하고 있습니다</h3>
-             <p className="text-gray-500 mt-2">{statusMessage}</p>
+            <Loader2 className="w-16 h-16 text-[#7c3aed] animate-spin mb-6" />
+            <h3 className="text-xl font-semibold text-gray-800">AI가 열심히 분석하고 있습니다</h3>
+            <p className="text-gray-500 mt-2">{statusMessage}</p>
           </div>
         )}
 
         {(step === AppStep.UPLOAD_CURRENT || step === AppStep.UPLOAD_TARGET) && (
           <div className="max-w-4xl mx-auto grid md:grid-cols-2 gap-8 items-start">
-            <ImageUploader 
+            <ImageUploader
               label="1. 현재 내 사진"
               description="정면이 잘 나온 사진을 올려주세요."
               image={currentImg}
@@ -159,9 +159,9 @@ const StyleConsultant: React.FC = () => {
                 if (img && !targetImg) setStep(AppStep.UPLOAD_TARGET);
               }}
             />
-            
+
             <div className={`transition-opacity duration-500 ${currentImg ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
-               <ImageUploader 
+              <ImageUploader
                 label="2. 원하는 스타일 사진"
                 description="따라하고 싶은 머리 사진을 올려주세요."
                 image={targetImg}
@@ -172,22 +172,22 @@ const StyleConsultant: React.FC = () => {
         )}
 
         {(step === AppStep.UPLOAD_TARGET || step === AppStep.UPLOAD_CURRENT) && currentImg && targetImg && (
-           <div className="mt-12 flex justify-center animate-in fade-in slide-in-from-bottom-2">
-             <button
-               onClick={handleProcess}
-               disabled={isProcessing}
-               className="group flex items-center gap-2 px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full font-bold text-lg shadow-lg shadow-indigo-200 transition-all hover:scale-105 active:scale-95"
-             >
-               스타일 분석 시작하기
-               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-             </button>
-           </div>
+          <div className="mt-12 flex justify-center animate-in fade-in slide-in-from-bottom-2">
+            <button
+              onClick={handleProcess}
+              disabled={isProcessing}
+              className="group flex items-center gap-2 px-8 py-4 bg-[#7c3aed] hover:bg-[#6d28d9] text-white rounded-full font-bold text-lg shadow-lg shadow-[#7c3aed]/30 transition-all hover:scale-105 active:scale-95"
+            >
+              스타일 분석 시작하기
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            </button>
+          </div>
         )}
 
         {step === AppStep.RESULTS && analysis && (
-          <AnalysisView 
-            analysis={analysis} 
-            generatedImage={generatedImg} 
+          <AnalysisView
+            analysis={analysis}
+            generatedImage={generatedImg}
             salons={salons}
             onReset={handleReset}
           />
@@ -196,7 +196,7 @@ const StyleConsultant: React.FC = () => {
       </main>
 
       <footer className="py-6 text-center text-gray-400 text-sm border-t border-gray-200 bg-white">
-        <p>© 2024 StyleSync AI. Powered by Google Gemini.</p>
+        <p>© 2024 StyleSync AI. All rights reserved.</p>
       </footer>
     </div>
   );
