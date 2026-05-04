@@ -1,0 +1,7 @@
+{
+  "name": "StyleSync: AI 헤어 컨설턴트",
+  "description": "AI 기반 가상 헤어 스타일링, 전문 분석 및 미용실 찾기",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
