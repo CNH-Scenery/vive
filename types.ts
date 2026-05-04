@@ -7,6 +7,32 @@ export interface HairAnalysis {
   difficultyLevel: string;
 }
 
+export interface PreviewVerification {
+  identityScore: number;
+  styleScore: number;
+  criticalIdentityChanged: boolean;
+  changedNonHairRegion: boolean;
+  styleGeneralizedInsteadOfCopied: boolean;
+}
+
+export interface PreviewResult {
+  image: string | null;
+  warning: string | null;
+  verification: PreviewVerification | null;
+}
+
+export type TargetMode = 'preset' | 'custom';
+
+export interface HairStylePreset {
+  id: string;
+  name: string;
+  category: string;
+  tags: string[];
+  thumbnail: string;
+  styleKeywords: string;
+  hairSpec: Record<string, unknown>;
+}
+
 export interface Salon {
   name: string;
   address: string;
