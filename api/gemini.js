@@ -340,23 +340,32 @@ const buildGeminiHairEditPrompt = (hairSpec, retryInstruction) => {
   ].join("\n");
 
   const editInstruction = [
-    "Edit only the hair region.",
-    "Replace the current hair with the specified text-described hairstyle.",
-    "Preserve the face, expression, clothing, background, lighting, camera angle, crop, and pose.",
-    "Do not change the person's identity.",
+    "Use Image A as the fixed source canvas.",
+    "Fully replace only the visible hair region with the specified text-described hairstyle.",
+    "Keep every non-hair region visually identical to Image A.",
+    "Do not solve hairstyle fit by altering facial geometry, expression, skin, clothing, background, crop, or pose.",
     retryInstruction || "",
   ]
     .filter(Boolean)
     .join(" ");
 
-  return `You are performing a localized hair edit.
+  return `You are performing a source-image-preserving hair replacement edit.
 
+You are not creating a new person, not generating a new portrait, and not repainting the face.
+Image A is the fixed final canvas for the output.
 Image A is the only visual source for the final person and final composition.
 There is no second visual reference image in this request. The hairstyle reference was already converted into text.
 Do not imagine, import, or blend any second person's face, skin, expression, clothing, background, lighting mood, or camera style.
 
+Zone rules:
+- Hair region: strongly replace the visible hair with the target hairstyle.
+- Non-hair region: preserve all visible pixels and visual identity from Image A as closely as possible.
+- Boundary region: blend only the new hair edge around the forehead, temples, ears, cheeks, and neck without changing facial geometry.
+
 Edit objective:
-Replace only the visible hair of the person in Image A with the hairstyle described below.
+Fully replace the visible hair of the person in Image A with the hairstyle described below.
+The replacement must clearly change the hair silhouette, length, volume, bangs, parting, texture, layers, ends, and color according to the hairstyle specification.
+Do not produce a subtle variation of the original hair.
 
 Primary hairstyle brief:
 ${hairSpec.generationBrief}
@@ -375,24 +384,28 @@ ${list(hairSpec.doNotSimplify)}
 
 Non-negotiable preservation rules:
 - Keep Image A's identity unchanged.
-- Keep Image A's face shape, eyes, nose, mouth, jaw, cheeks, skin, expression, age impression, body, clothing, background, lighting direction, camera angle, crop, and pose unchanged.
-- Do not beautify, age-shift, gender-shift, slim, reshape, repaint, or regenerate the face.
+- Keep Image A's face shape, eyes, eyebrows, nose, mouth, jaw, cheeks, skin texture, facial proportions, expression, age impression, neck, body, clothing, background, lighting direction, camera angle, crop, and pose visually unchanged.
+- Do not beautify, age-shift, gender-shift, slim, reshape, smooth, brighten, darken, retouch, repaint, or regenerate the face.
 - Do not replace Image A with a new person.
 - Do not invent or blend any facial features from the unseen reference person.
-- Only edit hair pixels and the minimum boundary area needed for natural blending around the forehead, temples, ears, and neck.
+- Only edit hair pixels and the minimum boundary area needed for natural blending around the forehead, temples, ears, cheeks, and neck.
+- Do not move, smooth, reshape, brighten, darken, repaint, or retouch any visible facial pixels.
 - Preserve Image A's original image composition and framing.
 
 Hair transfer rules:
 - Match the described hair silhouette, length, volume, bang shape, parting, texture, layers, end shape, and color as closely as possible.
+- Apply the target hairstyle strongly inside the visible hair region.
+- Do not keep the original hairstyle unless a specific region is outside the visible hair area.
 - Do not substitute a generic similar hairstyle.
 - Do not infer hidden back or nape details when the spec says not_visible.
-- If any style trait conflicts with preserving Image A's identity, preserve Image A's identity first.
+- If a hairstyle trait conflicts with the original face shape, hairline, expression, or facial proportions, adapt only the hair boundary while keeping the face unchanged.
+- Never change facial geometry to make the hairstyle fit.
 - The result should look like the same person from Image A visited a salon and changed only their hair.
 
 Additional instruction:
 ${editInstruction}
 
-Return one photorealistic edited portrait.`;
+Return Image A with the visible hair strongly replaced by the target hairstyle, while every non-hair region remains source-faithful and visually unchanged. Do not return a newly generated portrait.`;
 };
 
 const generateConservativeHairEdit = async (
