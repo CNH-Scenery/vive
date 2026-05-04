@@ -1,4 +1,4 @@
-import React, { ChangeEvent, useState } from 'react';
+﻿import React, { ChangeEvent, useState } from 'react';
 import { Image as ImageIcon, X } from 'lucide-react';
 
 interface ImageUploaderProps {
@@ -134,3 +134,4 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
 };
 
 export default ImageUploader;
+

@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type } from "@google/genai";
+﻿import { GoogleGenAI, Type } from "@google/genai";
 import { findStylePreset } from "../stylePresets.js";
 
 export const config = {
@@ -40,7 +40,7 @@ const buildPreviewWarning = (verification) => {
     return null;
   }
 
-  return "?�굴 ?�는 비헤???�역???��? 바�?것으�?감�??�었?�니?? 결과�?참고?�으로만 ?�인?�주?�요.";
+  return "?쇨뎬 ?먮뒗 鍮꾪뿤???곸뿭???쇰? 諛붾?寃껋쑝濡?媛먯??섏뿀?듬땲?? 寃곌낵瑜?李멸퀬?⑹쑝濡쒕쭔 ?뺤씤?댁＜?몄슂.";
 };
 
 const sanitizeVerification = (verification) => {
@@ -741,6 +741,15 @@ Provide a JSON response with the following fields in Korean:
 };
 
 const analyzeCurrentHair = async (ai, currentPhoto) => {
+  const fallback = {
+    currentLength: "unclear",
+    currentTexture: "unclear",
+  };
+
+  if (!currentPhoto) {
+    return fallback;
+  }
+
   const prompt = `
 Analyze the user's current hair in the provided image.
 Provide a JSON response with the following fields:
@@ -748,32 +757,33 @@ Provide a JSON response with the following fields:
 - currentTexture: Categorize exactly as one of 'straight', 'soft_wave', 'strong_wave', 'curl', 'frizzy', or 'unclear'.
 `;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: {
-      parts: [
-        { text: prompt },
-        { inlineData: { mimeType: getMimeType(currentPhoto), data: cleanBase64(currentPhoto) } },
-      ],
-    },
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          currentLength: { type: Type.STRING, enum: ["short", "medium", "long", "extra_long", "unclear"] },
-          currentTexture: { type: Type.STRING, enum: ["straight", "soft_wave", "strong_wave", "curl", "frizzy", "unclear"] },
-        },
-        required: ["currentLength", "currentTexture"],
+  try {
+    const response = await ai.models.generateContent({
+      model: TEXT_MODEL,
+      contents: {
+        parts: [
+          { text: prompt },
+          { inlineData: { mimeType: getMimeType(currentPhoto), data: cleanBase64(currentPhoto) } },
+        ],
       },
-    },
-  });
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            currentLength: { type: Type.STRING, enum: ["short", "medium", "long", "extra_long", "unclear"] },
+            currentTexture: { type: Type.STRING, enum: ["straight", "soft_wave", "strong_wave", "curl", "frizzy", "unclear"] },
+          },
+          required: ["currentLength", "currentTexture"],
+        },
+      },
+    });
 
-  if (!response.text) {
-    throw new Error("No analysis generated");
+    return parseModelJson(response.text, fallback);
+  } catch (error) {
+    console.error("Current hair analysis failed, using fallback", error);
+    return fallback;
   }
-
-  return JSON.parse(response.text);
 };
 
 const findNearbySalons = async (ai, location, styleKeywords) => {
@@ -893,3 +903,4 @@ export default async function handler(req, res) {
     });
   }
 }
+

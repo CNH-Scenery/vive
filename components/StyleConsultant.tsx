@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import ImageUploader from './ImageUploader';
 import AnalysisView from './AnalysisView';
 import StylePresetSelector from './StylePresetSelector';
@@ -62,7 +62,7 @@ const StyleConsultant: React.FC = () => {
     if (!currentImg) return;
     setStep(AppStep.ANALYZING_CURRENT);
     setIsProcessing(true);
-    setStatusMessage('현재 헤어 기장 및 모질을 분석 중입니다.');
+    setStatusMessage('현재 헤어 기장과 모질을 분석하는 중입니다.');
     
     try {
       const response = await fetch('/api/gemini', {
@@ -70,14 +70,16 @@ const StyleConsultant: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'analyzeCurrent', currentPhoto: currentImg }),
       });
-      if (!response.ok) throw new Error();
+      if (!response.ok) {
+        throw new Error(`analyzeCurrent failed with ${response.status}`);
+      }
       const data = await response.json();
       setCurrentHairAnalysis(data);
-      setStep(AppStep.CHOOSE_STYLE);
     } catch (e) {
-      alert('분석 중 오류가 발생했습니다.');
-      setStep(AppStep.UPLOAD_CURRENT);
+      console.error('Current hair analysis failed; continuing with fallback.', e);
+      setCurrentHairAnalysis({ currentLength: 'unclear', currentTexture: 'unclear' });
     } finally {
+      setStep(AppStep.CHOOSE_STYLE);
       setIsProcessing(false);
       setStatusMessage('');
     }
@@ -97,7 +99,7 @@ const StyleConsultant: React.FC = () => {
       let userLoc = location || await getLocation();
       if (userLoc) setLocation(userLoc);
 
-      setStatusMessage('선택하신 스타일 시뮬레이션을 생성 중입니다.');
+      setStatusMessage('선택하신 스타일 미리보기를 생성하는 중입니다.');
 
       const [analysisResult, previewResult] = await Promise.all([
         analyzeHairCompatibility(currentImg, activeTargetPhoto, activePreset, activePrompt),
@@ -115,14 +117,14 @@ const StyleConsultant: React.FC = () => {
       setPreviewVerification(previewResult.verification);
 
       if (userLoc && analysisResult.styleKeywords) {
-        setStatusMessage('주변 추천 살롱을 검색합니다.');
+        setStatusMessage('二쇰? 異붿쿇 ?대”??寃?됲빀?덈떎.');
         const foundSalons = await findNearbySalons(userLoc, analysisResult.styleKeywords);
         setSalons(foundSalons);
       }
 
       setStep(AppStep.RESULTS);
     } catch (error) {
-      alert('시뮬레이션 생성 중 오류가 발생했습니다.');
+      alert('스타일 결과 생성 중 오류가 발생했습니다.');
       setStep(AppStep.CHOOSE_STYLE);
     } finally {
       setIsProcessing(false);
@@ -194,8 +196,14 @@ const StyleConsultant: React.FC = () => {
               {step === AppStep.UPLOAD_CURRENT && (
                 <div className="animate-in fade-in slide-in-from-bottom-4 space-y-4">
                   <div>
-                    <h2 className="text-xl font-light mb-2">고객님의 현재 모발 상태를<br/>확인합니다.</h2>
-                    <p className="text-sm text-gray-500">정면 사진을 올려주시면 기장과 모질을 분석합니다.</p>
+                    <h2 className="text-xl font-light mb-2">
+                      고객님의 현재 모발 상태를
+                      <br />
+                      확인합니다
+                    </h2>
+                    <p className="text-sm text-gray-500">
+                      정면 사진을 올려주시면 기장과 모질을 분석합니다.
+                    </p>
                   </div>
                   <div className="p-1 rounded-2xl bg-zinc-900 border border-zinc-800">
                     <ImageUploader
@@ -211,8 +219,14 @@ const StyleConsultant: React.FC = () => {
               {step === AppStep.CHOOSE_STYLE && (
                 <div className="animate-in fade-in slide-in-from-bottom-4 space-y-6">
                   <div>
-                    <h2 className="text-xl font-light mb-2">어떤 스타일로<br/>변신하고 싶으신가요?</h2>
-                    <p className="text-sm text-gray-500">시술 가능한 프리셋을 고르거나 직접 텍스트로 요청해보세요.</p>
+                    <h2 className="text-xl font-light mb-2">
+                      어떤 스타일로
+                      <br />
+                      변화하고 싶으신가요?
+                    </h2>
+                    <p className="text-sm text-gray-500">
+                      시술 가능한 프리셋을 고르거나 직접 텍스트로 요청해보세요.
+                    </p>
                   </div>
 
                   {/* Toggle */}
@@ -221,7 +235,7 @@ const StyleConsultant: React.FC = () => {
                       onClick={() => setTargetMode('preset')}
                       className={`flex-1 py-2 text-xs font-medium rounded-md transition-colors ${targetMode === 'preset' ? 'bg-[#D4AF37] text-black' : 'text-gray-500'}`}
                     >
-                      스타일 북 (추천)
+                      스타일북 추천
                     </button>
                     <button
                       onClick={() => setTargetMode('custom')}
@@ -251,10 +265,10 @@ const StyleConsultant: React.FC = () => {
 
                   {/* Refinement Area */}
                   <div className="pt-4 border-t border-zinc-800">
-                    <h4 className="text-sm font-medium text-gray-300 mb-2">원하시는 디테일이 있나요?</h4>
+                    <h4 className="text-sm font-medium text-gray-300 mb-2">원하는 디테일이 있나요?</h4>
                     <textarea
                       className="w-full h-20 bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-[#D4AF37] resize-none"
-                      placeholder="예: 기장은 살짝 다듬고 붉은기 없는 브라운으로 염색하고 싶어요."
+                      placeholder="예: 기장은 조금 더 짧게, 붉은 느낌 없는 브라운으로 염색하고 싶어요."
                       value={targetPrompt}
                       onChange={(e) => setTargetPrompt(e.target.value)}
                     />
@@ -286,7 +300,7 @@ const StyleConsultant: React.FC = () => {
                   canGenerate ? 'bg-[#D4AF37] text-black active:scale-[0.98]' : 'bg-zinc-800 text-gray-500 cursor-not-allowed'
                 }`}
               >
-                AI 시뮬레이션 결과 보기
+                AI 스타일 결과 보기
               </button>
             )}
           </div>
@@ -297,3 +311,4 @@ const StyleConsultant: React.FC = () => {
 };
 
 export default StyleConsultant;
+
