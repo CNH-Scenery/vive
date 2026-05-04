@@ -1,5 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import Header from './Header';
+import React, { useEffect, useState } from 'react';
 import ImageUploader from './ImageUploader';
 import AnalysisView from './AnalysisView';
 import StylePresetSelector from './StylePresetSelector';
@@ -15,19 +14,22 @@ import {
   GeoLocation,
   PreviewVerification,
   HairStylePreset,
-  TargetMode,
 } from '../types';
 import { STYLE_PRESETS } from '../stylePresets.js';
-import { ArrowRight, Loader2, Scissors, Upload } from 'lucide-react';
+import { Loader2, ArrowLeft } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const PRESETS = STYLE_PRESETS as HairStylePreset[];
 
 const StyleConsultant: React.FC = () => {
+  const navigate = useNavigate();
   const [step, setStep] = useState<AppStep>(AppStep.UPLOAD_CURRENT);
   const [currentImg, setCurrentImg] = useState<string | null>(null);
   const [targetImg, setTargetImg] = useState<string | null>(null);
-  const [targetMode, setTargetMode] = useState<TargetMode>('preset');
+  const [targetPrompt, setTargetPrompt] = useState<string>('');
+  const [targetMode, setTargetMode] = useState<'preset' | 'custom'>('preset');
   const [selectedPreset, setSelectedPreset] = useState<HairStylePreset | null>(null);
+  const [currentHairAnalysis, setCurrentHairAnalysis] = useState<{currentLength?: 'short' | 'medium' | 'long' | 'extra_long' | 'unclear', currentTexture?: string} | null>(null);
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [analysis, setAnalysis] = useState<HairAnalysis | null>(null);
@@ -39,86 +41,73 @@ const StyleConsultant: React.FC = () => {
   const [statusMessage, setStatusMessage] = useState('');
 
   const hasTargetStyle = targetMode === 'preset' ? Boolean(selectedPreset) : Boolean(targetImg);
-  const canProcess = useMemo(() => {
-    return Boolean(currentImg) && hasTargetStyle && !isProcessing;
-  }, [currentImg, hasTargetStyle, isProcessing]);
+  const canGenerate = (hasTargetStyle || Boolean(targetPrompt.trim())) && !isProcessing;
 
   const getLocation = async (): Promise<GeoLocation | null> => {
-    if (!navigator.geolocation) {
-      console.error('Geolocation is not supported by this browser.');
-      return null;
-    }
-
-    const getPos = (options: PositionOptions): Promise<GeolocationPosition> => {
-      return new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, options);
-      });
-    };
-
-    try {
-      const position = await getPos({ enableHighAccuracy: true, timeout: 4000, maximumAge: 0 });
-      return { latitude: position.coords.latitude, longitude: position.coords.longitude };
-    } catch (error) {
-      console.warn('High accuracy location failed, trying fallback...', error);
-
-      try {
-        const position = await getPos({
-          enableHighAccuracy: false,
-          timeout: 10000,
-          maximumAge: 60000,
-        });
-        return { latitude: position.coords.latitude, longitude: position.coords.longitude };
-      } catch (fallbackError) {
-        console.error('All location retrieval attempts failed', fallbackError);
-        return null;
-      }
-    }
+    if (!navigator.geolocation) return null;
+    return new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+        () => resolve(null),
+        { enableHighAccuracy: false, timeout: 5000 }
+      );
+    });
   };
 
   useEffect(() => {
-    getLocation().then((loc) => {
-      if (loc) {
-        setLocation(loc);
-        console.log('Location acquired silently');
-      }
-    });
+    getLocation().then((loc) => loc && setLocation(loc));
   }, []);
 
-  const handleProcess = async () => {
-    if (!currentImg || !canProcess) {
-      return;
+  const handleAnalyzeCurrent = async () => {
+    if (!currentImg) return;
+    setStep(AppStep.ANALYZING_CURRENT);
+    setIsProcessing(true);
+    setStatusMessage('현재 헤어 기장 및 모질을 분석 중입니다.');
+    
+    try {
+      const response = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'analyzeCurrent', currentPhoto: currentImg }),
+      });
+      if (!response.ok) throw new Error();
+      const data = await response.json();
+      setCurrentHairAnalysis(data);
+      setStep(AppStep.CHOOSE_STYLE);
+    } catch (e) {
+      alert('분석 중 오류가 발생했습니다.');
+      setStep(AppStep.UPLOAD_CURRENT);
+    } finally {
+      setIsProcessing(false);
+      setStatusMessage('');
     }
+  };
 
-    setStep(AppStep.ANALYZING);
+  const handleGenerate = async () => {
+    if (!currentImg || !canGenerate) return;
+    setStep(AppStep.GENERATING);
     setIsProcessing(true);
     setGeneratedImg(null);
-    setPreviewWarning(null);
-    setPreviewVerification(null);
 
     const activePreset = targetMode === 'preset' ? selectedPreset : null;
     const activeTargetPhoto = targetMode === 'custom' ? targetImg : null;
+    const activePrompt = targetPrompt.trim() ? targetPrompt : null;
 
     try {
-      let userLoc = location;
+      let userLoc = location || await getLocation();
+      if (userLoc) setLocation(userLoc);
 
-      if (!userLoc) {
-        setStatusMessage('위치 정보를 확인하는 중입니다.');
-        userLoc = await getLocation();
-
-        if (userLoc) {
-          setLocation(userLoc);
-        }
-      }
-
-      setStatusMessage('스타일 분석과 AI 미리보기를 생성하는 중입니다.');
-
-      const analysisPromise = analyzeHairCompatibility(currentImg, activeTargetPhoto, activePreset);
-      const previewPromise = generateHairstylePreview(currentImg, activeTargetPhoto, activePreset);
+      setStatusMessage('선택하신 스타일 시뮬레이션을 생성 중입니다.');
 
       const [analysisResult, previewResult] = await Promise.all([
-        analysisPromise,
-        previewPromise,
+        analyzeHairCompatibility(currentImg, activeTargetPhoto, activePreset, activePrompt),
+        generateHairstylePreview(currentImg, activeTargetPhoto, activePreset, activePrompt),
       ]);
+
+      if (currentHairAnalysis) {
+        analysisResult.currentLength = currentHairAnalysis.currentLength;
+        analysisResult.currentTexture = currentHairAnalysis.currentTexture;
+      }
 
       setAnalysis(analysisResult);
       setGeneratedImg(previewResult.image);
@@ -126,22 +115,15 @@ const StyleConsultant: React.FC = () => {
       setPreviewVerification(previewResult.verification);
 
       if (userLoc && analysisResult.styleKeywords) {
-        setStatusMessage('주변 미용실을 검색하는 중입니다.');
-        try {
-          const foundSalons = await findNearbySalons(userLoc, analysisResult.styleKeywords);
-          setSalons(foundSalons);
-        } catch (salonError) {
-          console.error('Salon search error', salonError);
-        }
-      } else {
-        console.log('Skipping salon search: Location missing.');
+        setStatusMessage('주변 추천 살롱을 검색합니다.');
+        const foundSalons = await findNearbySalons(userLoc, analysisResult.styleKeywords);
+        setSalons(foundSalons);
       }
 
       setStep(AppStep.RESULTS);
     } catch (error) {
-      console.error('Processing failed', error);
-      alert('분석 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
-      setStep(AppStep.UPLOAD_TARGET);
+      alert('시뮬레이션 생성 중 오류가 발생했습니다.');
+      setStep(AppStep.CHOOSE_STYLE);
     } finally {
       setIsProcessing(false);
       setStatusMessage('');
@@ -152,135 +134,164 @@ const StyleConsultant: React.FC = () => {
     setStep(AppStep.UPLOAD_CURRENT);
     setCurrentImg(null);
     setTargetImg(null);
+    setTargetPrompt('');
     setTargetMode('preset');
     setSelectedPreset(null);
-    setAnalysis(null);
-    setGeneratedImg(null);
-    setPreviewWarning(null);
-    setPreviewVerification(null);
-    setSalons([]);
+    setCurrentHairAnalysis(null);
   };
 
-  const handleCurrentImageChange = (image: string | null) => {
-    setCurrentImg(image);
-    setStep(image ? AppStep.UPLOAD_TARGET : AppStep.UPLOAD_CURRENT);
+  const handleBack = () => {
+    if (step === AppStep.CHOOSE_STYLE) setStep(AppStep.UPLOAD_CURRENT);
+    else if (step === AppStep.RESULTS) setStep(AppStep.CHOOSE_STYLE);
+    else navigate('/');
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50">
-      <Header />
+    <div className="min-h-[100dvh] bg-[#0A0A0A] font-sans text-gray-100 flex flex-col items-center">
+      {/* Mobile App Container */}
+      <div className="w-full max-w-md min-h-[100dvh] flex flex-col relative bg-[#111111] shadow-2xl pb-24">
+        
+        {/* Header */}
+        <header className="sticky top-0 z-50 flex items-center justify-between px-5 py-4 bg-[#111111]/90 backdrop-blur-md border-b border-white/5">
+          <button onClick={handleBack} className="p-1 -ml-1 text-gray-400 hover:text-white transition-colors">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <span className="text-[16px] font-semibold tracking-widest uppercase">
+            Hair<span className="text-[#D4AF37]">Sync</span>
+          </span>
+          <button onClick={handleReset} className="text-xs text-gray-500 hover:text-gray-300">
+            초기화
+          </button>
+        </header>
 
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
-        {step !== AppStep.RESULTS && (
-          <div className="mx-auto mb-8 max-w-2xl space-y-2 text-center">
-            <h2 className="text-3xl font-bold text-gray-900">AI 헤어 스타일 컨설턴트</h2>
-            <p className="text-gray-500">
-              현재 사진과 원하는 헤어 스타일을 선택하면 AI가 분석하고 미리보기를 생성합니다.
-            </p>
-          </div>
-        )}
-
-        {step === AppStep.ANALYZING && (
-          <div className="flex animate-pulse flex-col items-center justify-center py-20">
-            <Loader2 className="mb-6 h-16 w-16 animate-spin text-[#7c3aed]" />
-            <h3 className="text-xl font-semibold text-gray-800">AI가 헤어 스타일을 분석하고 있습니다</h3>
-            <p className="mt-2 text-gray-500">{statusMessage}</p>
-          </div>
-        )}
-
-        {(step === AppStep.UPLOAD_CURRENT || step === AppStep.UPLOAD_TARGET) && (
-          <div className="grid gap-8 lg:grid-cols-[360px_minmax(0,1fr)]">
-            <ImageUploader
-              label="1. 현재 얼굴 사진"
-              description="정면에 가깝고 얼굴이 선명한 사진을 올려주세요."
-              image={currentImg}
-              onImageChange={handleCurrentImageChange}
+        {/* Content Area */}
+        <main className="flex-1 w-full px-5 py-6 overflow-y-auto">
+          
+          {(step === AppStep.ANALYZING_CURRENT || step === AppStep.GENERATING) ? (
+            <div className="flex flex-col items-center justify-center h-full min-h-[50vh] animate-pulse">
+              <Loader2 className="mb-6 h-10 w-10 animate-spin text-[#D4AF37]" />
+              <h3 className="text-sm font-medium text-gray-300">
+                {statusMessage}
+              </h3>
+            </div>
+          ) : step === AppStep.RESULTS ? (
+            <AnalysisView
+              analysis={analysis!}
+              generatedImage={generatedImg}
+              previewWarning={previewWarning}
+              previewVerification={previewVerification}
+              salons={salons}
+              onReset={handleReset}
             />
-
-            <section>
-              <div className="mb-4">
-                <h3 className="mb-1 text-lg font-semibold text-gray-800">2. 원하는 헤어 스타일</h3>
-                <p className="text-sm text-gray-500">
-                  프리셋을 먼저 선택해도 됩니다. 시작은 현재 사진과 스타일이 모두 준비된 뒤 가능합니다.
-                </p>
+          ) : (
+            <div className="space-y-6">
+              {/* Step Progress */}
+              <div className="flex items-center gap-2 mb-6">
+                <div className={`h-1 flex-1 rounded-full ${step === AppStep.UPLOAD_CURRENT ? 'bg-[#D4AF37]' : 'bg-[#D4AF37]/30'}`} />
+                <div className={`h-1 flex-1 rounded-full ${step === AppStep.CHOOSE_STYLE ? 'bg-[#D4AF37]' : 'bg-zinc-800'}`} />
               </div>
 
-              <div className="mb-5 inline-flex rounded-full border border-gray-200 bg-white p-1 shadow-sm">
-                <button
-                  type="button"
-                  onClick={() => setTargetMode('preset')}
-                  className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition-colors ${
-                    targetMode === 'preset'
-                      ? 'bg-[#7c3aed] text-white'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  <Scissors className="h-4 w-4" />
-                  프리셋 선택
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTargetMode('custom')}
-                  className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition-colors ${
-                    targetMode === 'custom'
-                      ? 'bg-[#7c3aed] text-white'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  <Upload className="h-4 w-4" />
-                  직접 업로드
-                </button>
-              </div>
-
-              {targetMode === 'preset' ? (
-                <StylePresetSelector
-                  presets={PRESETS}
-                  selectedPreset={selectedPreset}
-                  onSelect={setSelectedPreset}
-                />
-              ) : (
-                <div className="max-w-md">
-                  <ImageUploader
-                    label="원하는 스타일 사진"
-                    description="따라 하고 싶은 헤어스타일 사진을 올려주세요."
-                    image={targetImg}
-                    onImageChange={setTargetImg}
-                  />
+              {step === AppStep.UPLOAD_CURRENT && (
+                <div className="animate-in fade-in slide-in-from-bottom-4 space-y-4">
+                  <div>
+                    <h2 className="text-xl font-light mb-2">고객님의 현재 모발 상태를<br/>확인합니다.</h2>
+                    <p className="text-sm text-gray-500">정면 사진을 올려주시면 기장과 모질을 분석합니다.</p>
+                  </div>
+                  <div className="p-1 rounded-2xl bg-zinc-900 border border-zinc-800">
+                    <ImageUploader
+                      label=""
+                      description=""
+                      image={currentImg}
+                      onImageChange={setCurrentImg}
+                    />
+                  </div>
                 </div>
               )}
-            </section>
+
+              {step === AppStep.CHOOSE_STYLE && (
+                <div className="animate-in fade-in slide-in-from-bottom-4 space-y-6">
+                  <div>
+                    <h2 className="text-xl font-light mb-2">어떤 스타일로<br/>변신하고 싶으신가요?</h2>
+                    <p className="text-sm text-gray-500">시술 가능한 프리셋을 고르거나 직접 텍스트로 요청해보세요.</p>
+                  </div>
+
+                  {/* Toggle */}
+                  <div className="flex bg-zinc-900 rounded-lg p-1 border border-zinc-800">
+                    <button
+                      onClick={() => setTargetMode('preset')}
+                      className={`flex-1 py-2 text-xs font-medium rounded-md transition-colors ${targetMode === 'preset' ? 'bg-[#D4AF37] text-black' : 'text-gray-500'}`}
+                    >
+                      스타일 북 (추천)
+                    </button>
+                    <button
+                      onClick={() => setTargetMode('custom')}
+                      className={`flex-1 py-2 text-xs font-medium rounded-md transition-colors ${targetMode === 'custom' ? 'bg-[#D4AF37] text-black' : 'text-gray-500'}`}
+                    >
+                      직접 업로드
+                    </button>
+                  </div>
+
+                  {targetMode === 'preset' ? (
+                    <StylePresetSelector
+                      presets={PRESETS}
+                      selectedPreset={selectedPreset}
+                      onSelect={setSelectedPreset}
+                      currentLength={currentHairAnalysis?.currentLength}
+                    />
+                  ) : (
+                    <div className="p-1 rounded-2xl bg-zinc-900 border border-zinc-800">
+                      <ImageUploader
+                        label=""
+                        description=""
+                        image={targetImg}
+                        onImageChange={setTargetImg}
+                      />
+                    </div>
+                  )}
+
+                  {/* Refinement Area */}
+                  <div className="pt-4 border-t border-zinc-800">
+                    <h4 className="text-sm font-medium text-gray-300 mb-2">원하시는 디테일이 있나요?</h4>
+                    <textarea
+                      className="w-full h-20 bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-[#D4AF37] resize-none"
+                      placeholder="예: 기장은 살짝 다듬고 붉은기 없는 브라운으로 염색하고 싶어요."
+                      value={targetPrompt}
+                      onChange={(e) => setTargetPrompt(e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </main>
+
+        {/* Bottom Sticky Action Bar */}
+        {(step === AppStep.UPLOAD_CURRENT || step === AppStep.CHOOSE_STYLE) && !isProcessing && (
+          <div className="absolute bottom-0 w-full p-5 bg-gradient-to-t from-[#111111] via-[#111111] to-transparent">
+            {step === AppStep.UPLOAD_CURRENT ? (
+              <button
+                onClick={handleAnalyzeCurrent}
+                disabled={!currentImg}
+                className={`w-full py-4 text-sm font-semibold rounded-lg shadow-lg transition-all ${
+                  currentImg ? 'bg-[#D4AF37] text-black active:scale-[0.98]' : 'bg-zinc-800 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                모발 분석 시작
+              </button>
+            ) : (
+              <button
+                onClick={handleGenerate}
+                disabled={!canGenerate}
+                className={`w-full py-4 text-sm font-semibold rounded-lg shadow-lg transition-all ${
+                  canGenerate ? 'bg-[#D4AF37] text-black active:scale-[0.98]' : 'bg-zinc-800 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                AI 시뮬레이션 결과 보기
+              </button>
+            )}
           </div>
         )}
-
-        {(step === AppStep.UPLOAD_TARGET || step === AppStep.UPLOAD_CURRENT) && (
-          <div className="mt-10 flex justify-center animate-in fade-in slide-in-from-bottom-2">
-            <button
-              type="button"
-              onClick={handleProcess}
-              disabled={!canProcess}
-              className="group flex items-center gap-2 rounded-full bg-[#7c3aed] px-8 py-4 text-lg font-bold text-white shadow-lg shadow-[#7c3aed]/30 transition-all hover:scale-105 hover:bg-[#6d28d9] active:scale-95 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:shadow-none disabled:hover:scale-100"
-            >
-              스타일 분석 시작하기
-              <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
-            </button>
-          </div>
-        )}
-
-        {step === AppStep.RESULTS && analysis && (
-          <AnalysisView
-            analysis={analysis}
-            generatedImage={generatedImg}
-            previewWarning={previewWarning}
-            previewVerification={previewVerification}
-            salons={salons}
-            onReset={handleReset}
-          />
-        )}
-      </main>
-
-      <footer className="border-t border-gray-200 bg-white py-6 text-center text-sm text-gray-400">
-        <p>© 2026 StyleSync AI. All rights reserved.</p>
-      </footer>
+      </div>
     </div>
   );
 };

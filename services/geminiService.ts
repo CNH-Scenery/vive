@@ -8,7 +8,7 @@ import {
 
 type GeminiAction = "preview" | "analysis" | "salons";
 
-const requestGemini = async <T>(action: GeminiAction, payload: unknown): Promise<T> => {
+const requestGemini = async <T>(action: GeminiAction, payload: Record<string, any>): Promise<T> => {
   const response = await fetch("/api/gemini", {
     method: "POST",
     headers: {
@@ -33,12 +33,14 @@ export const generateHairstylePreview = async (
   currentPhoto: string,
   targetPhoto?: string | null,
   targetPreset?: HairStylePreset | null,
+  targetPrompt?: string | null,
 ): Promise<PreviewResult> => {
   try {
     return requestGemini<PreviewResult>("preview", {
       currentPhoto,
       targetPhoto,
       targetPreset: presetPayload(targetPreset),
+      targetPrompt,
     });
   } catch (error) {
     console.error("Preview generation failed:", error);
@@ -54,11 +56,13 @@ export const analyzeHairCompatibility = async (
   currentPhoto: string,
   targetPhoto?: string | null,
   targetPreset?: HairStylePreset | null,
+  targetPrompt?: string | null,
 ): Promise<HairAnalysis> => {
   return requestGemini<HairAnalysis>("analysis", {
     currentPhoto,
     targetPhoto,
     targetPreset: presetPayload(targetPreset),
+    targetPrompt,
   });
 };
 

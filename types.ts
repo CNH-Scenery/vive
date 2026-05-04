@@ -5,6 +5,8 @@ export interface HairAnalysis {
   stylistScript: string;
   styleKeywords: string;
   difficultyLevel: string;
+  currentLength?: 'short' | 'medium' | 'long' | 'extra_long' | 'unclear';
+  currentTexture?: 'straight' | 'soft_wave' | 'strong_wave' | 'curl' | 'frizzy' | 'unclear';
 }
 
 export interface PreviewVerification {
@@ -21,7 +23,7 @@ export interface PreviewResult {
   verification: PreviewVerification | null;
 }
 
-export type TargetMode = 'preset' | 'custom';
+export type TargetMode = 'preset' | 'custom' | 'text';
 
 export interface HairStylePreset {
   id: string;
@@ -43,9 +45,10 @@ export interface Salon {
 
 export enum AppStep {
   UPLOAD_CURRENT = 0,
-  UPLOAD_TARGET = 1,
-  ANALYZING = 2,
-  RESULTS = 3,
+  ANALYZING_CURRENT = 1,
+  CHOOSE_STYLE = 2,
+  GENERATING = 3,
+  RESULTS = 4,
 }
 
 export interface GeoLocation {

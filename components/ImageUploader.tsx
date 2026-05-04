@@ -91,16 +91,16 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
 
   return (
     <div className="w-full">
-      <h3 className="mb-1 text-lg font-semibold text-gray-800">{label}</h3>
-      <p className="mb-4 text-sm text-gray-500">{description}</p>
+      <h3 className="mb-1 text-lg font-semibold text-gray-200">{label}</h3>
+      <p className="mb-4 text-sm text-gray-400">{description}</p>
 
       {image ? (
-        <div className="group relative aspect-[4/5] w-full overflow-hidden rounded-xl border border-gray-200 bg-gray-100 shadow-sm">
+        <div className="group relative aspect-[4/5] w-full overflow-hidden rounded-xl border border-zinc-700 bg-zinc-800 shadow-sm">
           <img src={image} alt="업로드한 사진 미리보기" className="h-full w-full object-cover" />
           <button
             type="button"
             onClick={() => onImageChange(null)}
-            className="absolute right-2 top-2 rounded-full bg-white/90 p-2 text-gray-600 shadow-lg transition-colors hover:bg-red-50 hover:text-red-500"
+            className="absolute right-2 top-2 rounded-full bg-black/60 p-2 text-gray-300 shadow-lg transition-colors hover:bg-red-500/20 hover:text-red-400"
             aria-label="이미지 삭제"
           >
             <X className="h-5 w-5" />
@@ -109,17 +109,17 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
       ) : (
         <div
           className={`relative flex aspect-[4/5] w-full flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 text-center transition-all duration-200 ${
-            dragActive ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300 bg-white hover:border-indigo-400'
+            dragActive ? 'border-[#D4AF37] bg-[#D4AF37]/10' : 'border-zinc-700 bg-zinc-900/50 hover:border-[#D4AF37]'
           }`}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
         >
-          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#D4AF37]/20 text-[#D4AF37]">
             <ImageIcon className="h-6 w-6" />
           </div>
-          <p className="font-medium text-gray-700">이미지 선택 또는 드래그</p>
-          <p className="mt-1 text-xs text-gray-400">JPG, PNG 지원</p>
+          <p className="font-medium text-gray-300">이미지 선택 또는 드래그</p>
+          <p className="mt-1 text-xs text-gray-500">JPG, PNG 지원</p>
           <input
             type="file"
             accept="image/*"
