@@ -14,8 +14,7 @@ const getMimeType = (b64 = "") => {
 };
 
 const TEXT_MODEL = "gemini-3-flash-preview";
-const PRIMARY_IMAGE_MODEL = "gemini-3.1-flash-image-preview";
-const FALLBACK_IMAGE_MODEL = "gemini-2.5-flash-image";
+const PRIMARY_IMAGE_MODEL = "gemini-2.5-flash-image";
 
 const parseModelJson = (text, fallback) => {
   if (!text) {
@@ -445,14 +444,9 @@ const generateConservativeHairEdit = async (
   try {
     return await generateWithModel(PRIMARY_IMAGE_MODEL);
   } catch (error) {
-    console.error(`Gemini image model ${PRIMARY_IMAGE_MODEL} failed, trying fallback`, error);
-    try {
-      return await generateWithModel(FALLBACK_IMAGE_MODEL);
-    } catch (fallbackError) {
-      console.error(`Gemini image model ${FALLBACK_IMAGE_MODEL} failed, returning mock image`, fallbackError);
-      // Fallback to a placeholder image to ensure the demo continues working
-      return "https://images.unsplash.com/photo-1595476108010-b4d1f10d5e42?auto=format&fit=crop&q=80&w=512&h=512";
-    }
+    console.error(`Gemini image model ${PRIMARY_IMAGE_MODEL} failed, returning mock image`, error);
+    // Fallback to a placeholder image to ensure the demo continues working
+    return "https://images.unsplash.com/photo-1595476108010-b4d1f10d5e42?auto=format&fit=crop&q=80&w=512&h=512";
   }
 };
 
