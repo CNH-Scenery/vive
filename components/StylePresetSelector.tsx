@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { AlertCircle, Check } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { HairStylePreset } from '../types';
 
 interface StylePresetSelectorProps {
@@ -71,7 +71,7 @@ const getPresetMeta = (preset: HairStylePreset) => {
   };
 };
 
-const needsLengthConsultation = (
+const isPresetDisabled = (
   presetLength: string,
   currentLength?: 'short' | 'medium' | 'long' | 'extra_long' | 'unclear',
 ) => {
@@ -134,16 +134,21 @@ const StylePresetSelector: React.FC<StylePresetSelectorProps> = ({
           const isSelected = selectedPreset?.id === preset.id;
           const visibleTags = preset.tags.slice(1, 4);
           const meta = getPresetMeta(preset);
-          const needsConsultation = needsLengthConsultation(meta.lengthLabel, currentLength);
+          const disabled = isPresetDisabled(meta.lengthLabel, currentLength);
 
           return (
             <button
               key={preset.id}
               type="button"
-              onClick={() => onSelect(preset)}
+              onClick={() => !disabled && onSelect(preset)}
+              disabled={disabled}
               aria-pressed={isSelected}
-              className={`group flex h-full flex-col overflow-hidden rounded-lg border bg-zinc-900 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-zinc-600 ${
-                isSelected ? 'border-[#D4AF37] ring-1 ring-[#D4AF37]' : 'border-zinc-800'
+              className={`group flex h-full flex-col overflow-hidden rounded-lg border text-left shadow-sm transition-all ${
+                disabled
+                  ? 'cursor-not-allowed border-zinc-800 bg-zinc-900 opacity-40 grayscale'
+                  : isSelected
+                    ? 'border-[#D4AF37] bg-zinc-800 ring-1 ring-[#D4AF37]'
+                    : 'border-zinc-800 bg-zinc-900 hover:border-zinc-600'
               }`}
             >
               <div className="relative aspect-[4/5] w-full shrink-0 bg-zinc-800">
@@ -153,20 +158,15 @@ const StylePresetSelector: React.FC<StylePresetSelectorProps> = ({
                   className="h-full w-full object-cover"
                   loading="lazy"
                 />
-                {needsConsultation && (
-                  <div className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-black/70 px-2 py-1 text-[10px] font-medium text-amber-200">
-                    <AlertCircle className="h-3 w-3" />
-                    상담 필요
-                  </div>
-                )}
-                {isSelected && (
+                {disabled && <div className="absolute inset-0 bg-black/40" />}
+                {isSelected && !disabled && (
                   <div className="absolute right-2 top-2 rounded-full bg-[#D4AF37] p-1.5 text-black shadow-md">
                     <Check className="h-4 w-4" />
                   </div>
                 )}
               </div>
 
-              <div className="flex flex-1 flex-col space-y-2 p-3 text-gray-200">
+              <div className={`flex flex-1 flex-col space-y-2 p-3 ${disabled ? 'text-gray-500' : 'text-gray-200'}`}>
                 <div>
                   <h4 className="line-clamp-2 text-sm font-semibold leading-snug">
                     {preset.name}
