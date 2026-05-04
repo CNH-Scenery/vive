@@ -90,6 +90,9 @@ const StyleConsultant: React.FC = () => {
     setStep(AppStep.GENERATING);
     setIsProcessing(true);
     setGeneratedImg(null);
+    setPreviewWarning(null);
+    setPreviewVerification(null);
+    setSalons([]);
 
     const activePreset = targetMode === 'preset' ? selectedPreset : null;
     const activeTargetPhoto = targetMode === 'custom' ? targetImg : null;
@@ -115,14 +118,16 @@ const StyleConsultant: React.FC = () => {
       setGeneratedImg(previewResult.image);
       setPreviewWarning(previewResult.warning);
       setPreviewVerification(previewResult.verification);
+      setStep(AppStep.RESULTS);
 
       if (userLoc && analysisResult.styleKeywords) {
-        setStatusMessage('二쇰? 異붿쿇 ?대”??寃?됲빀?덈떎.');
-        const foundSalons = await findNearbySalons(userLoc, analysisResult.styleKeywords);
-        setSalons(foundSalons);
+        void findNearbySalons(userLoc, analysisResult.styleKeywords)
+          .then(setSalons)
+          .catch((error) => {
+            console.error('Background salon search failed', error);
+            setSalons([]);
+          });
       }
-
-      setStep(AppStep.RESULTS);
     } catch (error) {
       alert('스타일 결과 생성 중 오류가 발생했습니다.');
       setStep(AppStep.CHOOSE_STYLE);

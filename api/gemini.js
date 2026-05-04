@@ -884,8 +884,13 @@ export default async function handler(req, res) {
     }
 
     if (body.action === "salons") {
-      const salons = await findNearbySalons(ai, body.location, body.styleKeywords);
-      sendJson(res, 200, { salons });
+      try {
+        const salons = await findNearbySalons(ai, body.location, body.styleKeywords);
+        sendJson(res, 200, { salons });
+      } catch (salonError) {
+        console.error("Salon search failed, returning empty results", salonError);
+        sendJson(res, 200, { salons: [] });
+      }
       return;
     }
 
