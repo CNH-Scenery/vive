@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Check } from 'lucide-react';
+import { AlertCircle, Check } from 'lucide-react';
 import { HairStylePreset } from '../types';
 
 interface StylePresetSelectorProps {
@@ -19,6 +19,25 @@ const FILTERS = [
   '펌/웨이브',
   '컬러',
 ] as const;
+
+const LENGTH_LABELS: Record<string, string> = {
+  short: '숏',
+  medium: '미디엄',
+  long: '롱',
+  extra_long: '롱',
+  style: '스타일',
+};
+
+const TEXTURE_LABELS: Record<string, string> = {
+  straight: '스트레이트',
+  soft_wave: '소프트 웨이브',
+  strong_wave: '웨이브',
+  curl: '컬',
+  frizzy: '텍스처',
+  wet: '웻',
+  other: '스타일',
+  unclear: '스타일',
+};
 
 const matchesFilter = (preset: HairStylePreset, filter: string) => {
   if (filter === '전체') {
@@ -42,18 +61,24 @@ const getPresetMeta = (preset: HairStylePreset) => {
     texture?: { baseTexture?: string };
   };
 
+  const lengthLabel = hairSpec.overall?.lengthLabel || 'style';
+  const texture = hairSpec.texture?.baseTexture || 'other';
+
   return {
-    lengthLabel: hairSpec.overall?.lengthLabel || 'style',
-    texture: hairSpec.texture?.baseTexture || 'texture',
+    lengthLabel,
+    lengthText: LENGTH_LABELS[lengthLabel] || lengthLabel,
+    textureText: TEXTURE_LABELS[texture] || texture,
   };
 };
 
-const isPresetDisabled = (
+const needsLengthConsultation = (
   presetLength: string,
-  currentLength?: 'short' | 'medium' | 'long' | 'extra_long' | 'unclear'
+  currentLength?: 'short' | 'medium' | 'long' | 'extra_long' | 'unclear',
 ) => {
-  if (!currentLength || currentLength === 'unclear') return false;
-  
+  if (!currentLength || currentLength === 'unclear') {
+    return false;
+  }
+
   const lengthValues = {
     short: 1,
     medium: 2,
@@ -62,11 +87,10 @@ const isPresetDisabled = (
     style: 0,
   };
 
-  const currentVal = lengthValues[currentLength as keyof typeof lengthValues] || 0;
-  const targetVal = lengthValues[presetLength as keyof typeof lengthValues] || 0;
+  const currentValue = lengthValues[currentLength] || 0;
+  const targetValue = lengthValues[presetLength as keyof typeof lengthValues] || 0;
 
-  // You cannot choose a style that is longer than your current hair
-  return targetVal > currentVal && targetVal > 0 && currentVal > 0;
+  return targetValue > currentValue && targetValue > 0 && currentValue > 0;
 };
 
 const StylePresetSelector: React.FC<StylePresetSelectorProps> = ({
@@ -110,47 +134,45 @@ const StylePresetSelector: React.FC<StylePresetSelectorProps> = ({
           const isSelected = selectedPreset?.id === preset.id;
           const visibleTags = preset.tags.slice(1, 4);
           const meta = getPresetMeta(preset);
-          const disabled = isPresetDisabled(meta.lengthLabel, currentLength);
+          const needsConsultation = needsLengthConsultation(meta.lengthLabel, currentLength);
 
           return (
             <button
               key={preset.id}
               type="button"
-              onClick={() => !disabled && onSelect(preset)}
-              disabled={disabled}
+              onClick={() => onSelect(preset)}
               aria-pressed={isSelected}
-              className={`group flex flex-col h-full overflow-hidden rounded-lg border text-left shadow-sm transition-all ${
-                disabled
-                  ? 'border-zinc-800 bg-zinc-900 opacity-40 grayscale cursor-not-allowed'
-                  : isSelected
-                  ? 'border-[#D4AF37] ring-1 ring-[#D4AF37] bg-zinc-800'
-                  : 'border-zinc-800 bg-zinc-900 hover:border-zinc-600'
+              className={`group flex h-full flex-col overflow-hidden rounded-lg border bg-zinc-900 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-zinc-600 ${
+                isSelected ? 'border-[#D4AF37] ring-1 ring-[#D4AF37]' : 'border-zinc-800'
               }`}
             >
-              <div className="relative w-full shrink-0 aspect-[4/5] bg-zinc-800">
+              <div className="relative aspect-[4/5] w-full shrink-0 bg-zinc-800">
                 <img
                   src={preset.thumbnail}
                   alt={preset.name}
                   className="h-full w-full object-cover"
                   loading="lazy"
                 />
-                {disabled && (
-                  <div className="absolute inset-0 bg-black/40" />
+                {needsConsultation && (
+                  <div className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-black/70 px-2 py-1 text-[10px] font-medium text-amber-200">
+                    <AlertCircle className="h-3 w-3" />
+                    상담 필요
+                  </div>
                 )}
-                {isSelected && !disabled && (
+                {isSelected && (
                   <div className="absolute right-2 top-2 rounded-full bg-[#D4AF37] p-1.5 text-black shadow-md">
                     <Check className="h-4 w-4" />
                   </div>
                 )}
               </div>
 
-              <div className={`flex flex-col flex-1 space-y-2 p-3 ${disabled ? 'text-gray-500' : 'text-gray-200'}`}>
+              <div className="flex flex-1 flex-col space-y-2 p-3 text-gray-200">
                 <div>
                   <h4 className="line-clamp-2 text-sm font-semibold leading-snug">
                     {preset.name}
                   </h4>
                   <p className="mt-1 text-[10px] text-gray-400">
-                    {meta.lengthLabel} · {meta.texture}
+                    {meta.lengthText} · {meta.textureText}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-1">
